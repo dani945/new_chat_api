@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, unnecessary_const, sized_box_for_whitespace, unnecessary_new, sort_child_properties_last, non_constant_identifier_names, use_key_in_widget_constructors, no_logic_in_create_state, unnecessary_string_interpolations, unused_field, use_build_context_synchronously, unused_local_variable, prefer_final_fields, list_remove_unrelated_type, prefer_is_empty, prefer_const_constructors, unnecessary_null_comparison, unrelated_type_equality_checks
+// ignore_for_file: deprecated_member_use, unnecessary_const, sized_box_for_whitespace, unnecessary_new, sort_child_properties_last, non_constant_identifier_names, use_key_in_widget_constructors, no_logic_in_create_state, unnecessary_string_interpolations, unused_field, use_build_context_synchronously, unused_local_variable, prefer_final_fields, list_remove_unrelated_type, prefer_is_empty, prefer_const_constructors, unnecessary_null_comparison, unrelated_type_equality_checks, avoid_print
 
 import 'dart:async';
 import 'dart:convert';
@@ -15,6 +15,8 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
 
 class Chat extends StatefulWidget {
   const Chat({super.key, required this.ConsultationID});
@@ -42,6 +44,7 @@ class _Chat extends State<Chat> {
   IconData? _selectedIcon;
   late double _rating = 0.0;
   bool isloading = false;
+  bool iserror = false;
 
   late List<File> _file = <File>[];
   List<Widget> list = <Widget>[];
@@ -49,35 +52,46 @@ class _Chat extends State<Chat> {
   final bool _running = true;
   List getImg = [];
   List imgDecode = [];
+  List chatSend = [];
+  String extensionFile = '';
+  late VideoPlayerController _controller;
+  // late VideoPlayerController _controllerVideo;
 
   // This funcion will helps you to pick and Image from Gallery
   _pickfile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       // allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions: ['jpg', 'png', 'jpeg', 'mp4'],
+      allowedExtensions: ['jpg', 'png', 'jpeg'],
+      // , 'mp4'
     );
 
     if (result != null) {
       setState(() {
-        // PlatformFile file = result.files.first;
+        PlatformFile file = result.files.first;
+        extensionFile = file.extension!;
+        // print(file.name);
+        // print(file.bytes);
+        // print(file.size);
+        // print(file.extension);
 
-  // print(file.name);
-  // print(file.bytes);
-  // print(file.size);
-  // print(file.extension);
-  
 // File filess = File(file.path.toString());
 
         List<File> files = result.paths.map((path) => File(path!)).toList();
         // var filess = file.path;
-  //       final File fileForFirebase = File(file.path);
+        //       final File fileForFirebase = File(file.path);
 
         // List<File> files = [filess];
 
-        // print("HAHAHA  $result $filesss");
-        
+        // print("HAHAHA  ${}");
+
         _file = files;
+
+        // _controller = VideoPlayerController.file(File(_file.first.path.toString()))
+        //   ..initialize().then((_) {
+        //     // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
+        //     setState(() {});
+        //   });
       });
     } else {
       // User canceled the picker
@@ -103,10 +117,44 @@ class _Chat extends State<Chat> {
             height: MediaQuery.of(context).size.width * 0.21,
             decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xff99CB57))),
-            child: Image.memory(bytes,
-                fit: BoxFit.fill,
-                width: MediaQuery.of(context).size.width * 0.21,
-                height: MediaQuery.of(context).size.width * 0.21),
+            child: (extensionFile == "jpg" ||
+                    extensionFile == "jpeg" ||
+                    extensionFile == "png")
+                ? Image.memory(bytes,
+                    fit: BoxFit.fill,
+                    width: MediaQuery.of(context).size.width * 0.21,
+                    height: MediaQuery.of(context).size.width * 0.21)
+                : Stack(
+                    children: [
+                      Center(
+                        child: _controller.value.isInitialized
+                            ? AspectRatio(
+                                aspectRatio: _controller.value.aspectRatio,
+                                child: VideoPlayer(_controller),
+                              )
+                            : Container(),
+                      ),
+                      Center(
+                        child: InkWell(
+                          child: _controller.value.isPlaying
+                              ? Container()
+                              : Icon(
+                                  Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                          onTap: () {
+                            setState(() {
+                              _controller.value.isPlaying
+                                  ? _controller.pause()
+                                  : _controller.play();
+                              // if (_controller.value.isPlaying) _showController = false;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
           ),
           Positioned(
             top: -5,
@@ -117,6 +165,7 @@ class _Chat extends State<Chat> {
                   _file.removeAt(i);
                   _baseimage.removeAt(i);
                   list.removeAt(i);
+                  extensionFile = "";
                 });
               },
               icon: const Icon(
@@ -152,7 +201,7 @@ class _Chat extends State<Chat> {
   @override
   void initState() {
     super.initState();
-    getListChatmanual(widget.ConsultationID);
+    // getListChatmanual(widget.ConsultationID);
     print("CONS_ID ${widget.ConsultationID}");
     // focusNode.requestFocus();
   }
@@ -187,42 +236,42 @@ class _Chat extends State<Chat> {
     }
   }
 
-  getListChatmanual(consultationID) async {
-    getImg = [];
-    imgDecode = [];
-    if (consultationID != null || consultationID != "") {
-      Map<String, dynamic> datapost = {
-        "action": actionListChat,
-        "apikey": apikey,
-        "ConsultationID": "$consultationID",
-        "UserId": "1"
-      };
+  // getListChatmanual(consultationID) async {
+  //   // getImg = [];
+  //   // imgDecode = [];
+  //   if (consultationID != null || consultationID != "") {
+  //     Map<String, dynamic> datapost = {
+  //       "action": actionListChat,
+  //       "apikey": apikey,
+  //       "ConsultationID": "$consultationID",
+  //       "UserId": "1"
+  //     };
 
-      Codec<String, String> stringToBase64 = utf8.fuse(base64);
+  //     Codec<String, String> stringToBase64 = utf8.fuse(base64);
 
-      Map<String, dynamic> bodyParameters = {
-        "data": "${stringToBase64.encode(json.encode(datapost))}"
-      };
+  //     Map<String, dynamic> bodyParameters = {
+  //       "data": "${stringToBase64.encode(json.encode(datapost))}"
+  //     };
 
-      var result = await ListChat().listChat(bodyParameters);
-      getImg = result!;
-      if (getImg.isNotEmpty) {
-        isLoading(false);
-      }
-      for (var i = 0; i < result.length; i++) {
-        late Uint8List byteImg;
-        if (getImg[i]['image'] != "") {
-          byteImg = const Base64Codec().decode(getImg[i]['image']);
-          imgDecode.add(byteImg);
-        } else {
-          imgDecode.add("");
-        }
-      }
+  //     var result = await ListChat().listChat(bodyParameters);
+  //     getImg = result!;
+  //     if (getImg.isNotEmpty) {
+  //       isloading = false;
+  //     }
+  //     for (var i = 0; i < result.length; i++) {
+  //       late Uint8List byteImg;
+  //       if (getImg[i]['image'] != "") {
+  //         byteImg = const Base64Codec().decode(getImg[i]['image']);
+  //         imgDecode.add(byteImg);
+  //       } else {
+  //         imgDecode.add("");
+  //       }
+  //     }
 
-      // print("KALAOAA ${imgDecode}");
-      // return result;
-    }
-  }
+  //     // print("KALAOAA ${imgDecode}");
+  //     // return result;
+  //   }
+  // }
 
   Future<ReturnSave?> retrunSaveChat(bodyParameters) async {
     ReturnSave? result = await SaveChat().saveChat(bodyParameters);
@@ -242,6 +291,7 @@ class _Chat extends State<Chat> {
           Map<String, dynamic> datapost = {
             "action": actionAddChat,
             "apikey": apikey,
+            "flag": "1",
             "ConsultationID": "$consultationID",
             "UserId": "1",
             "TextDetail": "${(i == 0) ? message : ""}",
@@ -259,12 +309,12 @@ class _Chat extends State<Chat> {
           );
           if (res!.response == "true") {
             setState(() {
-              getListChatmanual(widget.ConsultationID);
+              isloading = false;
+              // getListChatmanual(widget.ConsultationID);
             });
           } else {
             setState(() {
-              isLoading(false);
-              // ignore: prefer_const_constructors
+              iserror = true;
               final snackBar = SnackBar(
                   content: const Text("Error, Can't Send Chat !!!"),
                   backgroundColor: (const Color(0xff4CAF50)),
@@ -279,6 +329,7 @@ class _Chat extends State<Chat> {
           Map<String, dynamic> datapost = {
             "action": actionAddChat,
             "apikey": apikey,
+            "flag": "1",
             "ConsultationID": "$consultationID",
             "UserId": "1",
             "TextDetail": "$message",
@@ -293,12 +344,12 @@ class _Chat extends State<Chat> {
           var res = await retrunSaveChat(bodyParameters);
           if (res!.response == "true") {
             setState(() {
-              getListChatmanual(widget.ConsultationID);
+              isloading = false;
+              // getListChatmanual(widget.ConsultationID);
             });
           } else {
             setState(() {
-              isLoading(false);
-              // ignore: prefer_const_constructors
+              iserror = true;
               final snackBar = SnackBar(
                   content: const Text("Error, Can't Send Chat !!!"),
                   backgroundColor: (const Color(0xff4CAF50)),
@@ -319,7 +370,6 @@ class _Chat extends State<Chat> {
 
   _sendRating(consultationID, coment, rate) async {
     if (rate == 0.0) {
-      // ignore: prefer_const_constructors
       final snackBar = SnackBar(
           content: const Text("Please Insert Rating First !!!"),
           backgroundColor: (const Color(0xff4CAF50)),
@@ -349,7 +399,6 @@ class _Chat extends State<Chat> {
               MaterialPageRoute(builder: (context) => const ChatDaftar()),
               ModalRoute.withName("/Chat_Daftar"));
         } else {
-          // ignore: prefer_const_constructors
           final snackBar = SnackBar(
               content: const Text("Error, Can't Add Rating !!!"),
               backgroundColor: (const Color(0xff4CAF50)),
@@ -368,18 +417,31 @@ class _Chat extends State<Chat> {
     super.dispose();
   }
 
-  isLoading(bool isloading) async {
+  Widget isLoading() {
+    if (iserror) {
+      return Icon(
+        Icons.close_sharp,
+        size: 13,
+        color: Color(0xff4CAF50),
+      );
+    }
+
     if (isloading) {
-      return showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Center(child: SizedBox(height: 50, width: 50,child: CircularProgressIndicator(),),);
-        },
+      return Padding(
+        padding: const EdgeInsets.only(top: 3.0),
+        child: Icon(
+          Icons.query_builder,
+          size: 13,
+          color: Color(0xff4CAF50),
+        ),
       );
     } else {
-      await Future<void>.delayed(const Duration(seconds: 5));
-      Navigator.pop(context);
+      // await Future<void>.delayed(const Duration(seconds: 5));
+      return Icon(
+        Icons.done_all,
+        size: 15,
+        color: Color(0xff4CAF50),
+      );
     }
   }
 
@@ -515,7 +577,7 @@ class _Chat extends State<Chat> {
                                 child: TextFormField(
                                     controller: _controllerKomentarRting,
                                     textAlignVertical: TextAlignVertical.top,
-                                    maxLines: 10,
+                                    maxLines: 13,
                                     obscureText: false,
                                     decoration: const InputDecoration(
                                       contentPadding:
@@ -525,7 +587,7 @@ class _Chat extends State<Chat> {
                                     ),
                                     style: const TextStyle(
                                         fontSize: 13,
-                                        // color: Color(0xffC4C4C4),
+                                        color: Color(0xff000000),
                                         fontWeight: FontWeight.w400)),
                               ),
                               Padding(
@@ -588,7 +650,7 @@ class _Chat extends State<Chat> {
   }
 
   Widget listviewchat(data) {
-    // print("KASLALDKA ${getImg[0]}");
+    // print("KASLALDKA ${imgDecode.length}");
     // late Uint8List bytes;
     // for (var i = 0; i < getImg.length; i++) {
     //   if (getImg[i]['image'] != "") {
@@ -600,6 +662,8 @@ class _Chat extends State<Chat> {
     // if (getImg[0] != "") {
     //       bytes = const Base64Codec().decode(getImg[0]);
     //     }
+
+    
     return ListView.builder(
       itemCount: data.length,
       shrinkWrap: true,
@@ -610,6 +674,14 @@ class _Chat extends State<Chat> {
         var expH = expT[1].split(":");
         List T = [expH[0], expH[1]];
         String time = T.join(".");
+
+        // print("SDAHDHADHA ${imgDecode[index]}");
+
+        // _controllerVideo = VideoPlayerController.file(File(imgDecode[index].toString()))
+        //   ..initialize().then((_) {
+        //     // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
+        //     setState(() {});
+        //   });
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -715,7 +787,16 @@ class _Chat extends State<Chat> {
                                             height: 50,
                                             width: 50,
                                             child: CircularProgressIndicator()))
-                                    : Image.memory(imgDecode[index]),
+                                    : 
+                      //               Center(
+                      //   child: _controllerVideo.value.isInitialized
+                      //       ? AspectRatio(
+                      //           aspectRatio: _controllerVideo.value.aspectRatio,
+                      //           child: VideoPlayer(_controllerVideo),
+                      //         )
+                      //       : Container(child: Text("EALAH"),),
+                      // )
+                                    Image.memory(imgDecode[index]),
                               ),
                             ),
                             Text(
@@ -760,11 +841,20 @@ class _Chat extends State<Chat> {
                       if (data[index]['flag'] != "2")
                         Container(
                             width: 50,
-                            child: const Icon(
-                              Icons.done_all,
-                              size: 15,
-                              color: Color(0xff4CAF50),
-                            )),
+                            child: (data[index]['isloading'] != null)
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 3.0),
+                                    child: Icon(
+                                      Icons.query_builder,
+                                      size: 13,
+                                      color: Color(0xff4CAF50),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.done_all,
+                                    size: 15,
+                                    color: Color(0xff4CAF50),
+                                  )),
                       Expanded(
                           child: Container(
                               alignment: (data[index]['flag'] == "2"
@@ -804,7 +894,7 @@ class _Chat extends State<Chat> {
   List messages = [];
   int nb = 6;
   @override
-  Widget build(BuildContext context) {  
+  Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -823,19 +913,66 @@ class _Chat extends State<Chat> {
                       StreamBuilder(
                         stream: getChatStream(widget.ConsultationID),
                         builder: (context, snapshot) {
-                          if (snapshot.hasData) {
-                            return listviewchat(snapshot.data);
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return listviewchat(chatSend);
                           }
-                          return SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.8,
-                            width: MediaQuery.of(context).size.width * 1,
-                            child: const Center(
-                                child: CircularProgressIndicator()),
-                          );
+                          if (snapshot.hasData) {
+                            chatSend = [];
+                            var value = jsonEncode(snapshot.data);
+                            var valnya = json.decode(value);
+                            for (var i = 0; i < valnya.length; i++) {
+                              chatSend.add(valnya[i]);
+                            }
+
+                            return listviewchat(chatSend);
+                          }
+                          return listviewchat(chatSend);
+                          // return SizedBox(
+                          //   height: MediaQuery.of(context).size.height * 0.8,
+                          //   width: MediaQuery.of(context).size.width * 1,
+                          //   child: const Center(
+                          //       child: CircularProgressIndicator()),
+                          // );
                         },
                       ),
                     ])),
-                if (_file.isNotEmpty)
+                if (extensionFile == "jpg" ||
+                    extensionFile == "jpeg" ||
+                    extensionFile == "png")
+                  ConstrainedBox(
+                    constraints: new BoxConstraints(
+                      minHeight: MediaQuery.of(context).size.height * 0.1,
+                      maxHeight: MediaQuery.of(context).size.height * 0.25,
+                    ),
+                    child: Container(
+                        padding: const EdgeInsets.all(5.0),
+                        // height: MediaQuery.of(context).size.height * 0.25,
+                        width: MediaQuery.of(context).size.width * 1,
+                        color: const Color(0xffF6F6F6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _rowImage(_file.length)),
+                            // Container(
+                            //   width: 50,
+                            //   child: Padding(
+                            //     padding: const EdgeInsets.only(right: 20.0),
+                            //     child: IconButton(
+                            //       onPressed: () {
+                            //         setState(() {
+                            //           baseimage = "";
+                            //         });
+                            //       },
+                            //       icon: const Icon(Icons.close, size: 20.0),
+                            //     ),
+                            //   ),
+                            // )
+                          ],
+                        )),
+                  ),
+                if (extensionFile == "mp4")
                   ConstrainedBox(
                     constraints: new BoxConstraints(
                       minHeight: MediaQuery.of(context).size.height * 0.1,
@@ -963,7 +1100,48 @@ class _Chat extends State<Chat> {
                         child: ElevatedButton(
                             onPressed: () {
                               setState(() {
-                                isLoading(true);
+                                isloading = true;
+                                String baseimageInternal = "";
+                                if (_file.length > 0) {
+                                  List<int> imageBytes =
+                                      _file[0].readAsBytesSync();
+                                  baseimageInternal = base64Encode(imageBytes);
+                                  late Uint8List byteImg;
+                                  byteImg = const Base64Codec().decode(baseimageInternal);
+                                  imgDecode.add(byteImg);
+  //                                 if(extensionFile == "jpg" || extensionFile == "jpeg" || extensionFile == "png"){
+
+  //                                 } else {
+  // //                                   List<int> imageBytes = _file[0].readAsBytesSync();
+  // //     baseimage = base64Encode(imageBytes);
+
+  // //     var cek = const Base64Codec().decode(base64.normalize(baseimage));
+
+
+  // // var tes = Io.File(_file.first.path);
+  // // tes.writeAsBytesSync(cek);
+  // // print("TEATEATTAE ${tes.path}");
+  
+  // // imgDecode.add(tes.path);
+  //                                 }
+                                  extensionFile = "";
+                                } else {
+                                  imgDecode.add("${_controllerMessage.text}");
+                                }
+
+                                DateTime now = DateTime.now();
+                                String formattedDate =
+                                    DateFormat('yyyy-MM-dd HH:mm:ss')
+                                        .format(now);
+
+                                chatSend.add({
+                                  "Text": "${_controllerMessage.text}",
+                                  "flag": "1",
+                                  "image": "$baseimageInternal",
+                                  "CreatedAt": "$formattedDate",
+                                  "isloading": "1"
+                                });
+                                
                                 _sendChat(widget.ConsultationID,
                                     _controllerMessage.text, _file);
                                 _controllerMessage.text = "";
@@ -1135,7 +1313,7 @@ class _Chat extends State<Chat> {
                                           controller: _controllerKomentarRting,
                                           textAlignVertical:
                                               TextAlignVertical.top,
-                                          maxLines: 10,
+                                          maxLines: 13,
                                           obscureText: false,
                                           decoration: const InputDecoration(
                                             contentPadding:
@@ -1145,7 +1323,7 @@ class _Chat extends State<Chat> {
                                           ),
                                           style: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xffC4C4C4),
+                                              color: Color(0xff000000),
                                               fontWeight: FontWeight.w400)),
                                     ),
                                     Padding(
